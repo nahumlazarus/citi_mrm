@@ -6,5 +6,17 @@ CLAUDE.local.md
 
 citi_mrm_tools.log
 
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Serena
+.serena/
+
+# Jupyter
+.ipynb_checkpoints/
+scratch.ipynb
+
 # Outputs
 dummy_multiclass_predictions.csv
