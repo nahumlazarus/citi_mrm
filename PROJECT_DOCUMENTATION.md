@@ -1,9 +1,90 @@
 # Citi MRM Tools - Project Documentation
 
-**Generated:** 2026-05-11
+**Generated:** 2026-05-11  
+**Updated:** 2026-05-12
+
+## Project Mission
+
+**Goal:** Automate the Model Risk Management (MRM) evaluation and approval process for machine learning models deployed to clients.
+
+**Current State:** Python scripts and notebooks used by technical practitioners to generate MRM documentation and evidence.
+
+**Next Step:** Build a simple UI tool where users can point to datasets and models, then automatically generate all required MRM outputs.
+
+**Target Users:**
+- Model validators (semi-technical) - understand models but not necessarily Python
+- Risk managers (non-technical) - need to review evidence without running code
+- Business stakeholders (non-technical) - need performance summaries and visualizations
+
+**Long-term Vision:** Fully automated MRM workflow from model output to approval documentation through a user-friendly interface.
+
+---
+
+## UI Tool Vision
+
+The end goal is a simple desktop application where non-technical users can:
+
+**Input Section:**
+1. Browse to select dataset directories containing phrase reco files
+2. Browse to select model prediction CSV files
+3. Choose dataset names/labels from dropdowns
+4. Select output directory for results
+
+**Analysis Selection:**
+- ☑ Generate Word Statistics (dataset characterization)
+- ☑ Generate Word Frequency Analysis (vocabulary distribution)
+- ☑ Generate ROC Curves (model performance)
+- ☑ Generate Full MRM Report (all analyses + summary PDF)
+
+**Execution:**
+- "Run Analysis" button
+- Progress bar showing current step
+- Log viewer showing real-time progress
+- Cancel button for long-running jobs
+
+**Output:**
+- Summary dashboard showing:
+  - Generated files (clickable links)
+  - Key metrics (AUC scores, dataset sizes, word counts)
+  - Thumbnail previews of plots
+- "Open Output Folder" button
+- "Export Report" button (PDF with all artifacts)
+
+**Technology Considerations:**
+- Must run on Windows (target environment)
+- Must work offline (no internet dependency)
+- Python 3.7.4 compatible
+- Options: Tkinter (built-in), PyQt, or simple web interface (Flask + local browser)
+
+---
+
+## Business Context
+
+When machine learning models are created for clients, they must pass through a Model Risk Management (MRM) evaluation process before deployment. This process requires:
+
+1. **Statistical Evidence** - Descriptive statistics about model inputs (word counts, frequencies)
+2. **Performance Metrics** - Model evaluation metrics (ROC curves, AUC scores)
+3. **Documentation** - Clear, reproducible reports for non-technical reviewers
+4. **Traceability** - Logs and versioned outputs for audit compliance
+
+This project generates the required outputs for the MRM process. Each script addresses a specific MRM requirement:
+
+- **word_statistics.py** → Input data characterization (transcript statistics)
+- **word_frequency_analysis.py** → Vocabulary analysis and data distribution
+- **tpr_fpr_curve.py** → Model performance evaluation (classification metrics)
+
+---
 
 ## Overview
 This project contains Python scripts for analyzing datasets and models as part of the Model Risk Management (MRM) process. The scripts process audio transcript data in "phrase reco" format (tab-separated CSV files) to generate statistical analyses and model evaluation metrics.
+
+### Design Principles for Accessibility
+As we evolve toward broader accessibility:
+- **Simplicity** - Clear function signatures with minimal required parameters
+- **Robustness** - Graceful handling of edge cases and malformed data
+- **Logging** - Comprehensive logs for debugging and audit trails
+- **Documentation** - Inline docstrings and usage examples in `if __name__ == "__main__"` blocks
+- **Output clarity** - Self-documenting output filenames with timestamps and dataset names
 
 ---
 
@@ -199,3 +280,56 @@ Scripts expect/create these directories:
 - Error handling is minimal (bare `except` in `get_word_count`)
 - Scripts are designed for Windows paths but use `os.path.join()` for some cross-platform compatibility
 - Parallel processing uses configurable worker counts for different server capabilities
+
+---
+
+## Summary: Script Purposes in MRM Context
+
+### word_statistics.py - **Data Characterization**
+**MRM Requirement:** Demonstrate understanding of input data characteristics  
+**Output for MRM:** Descriptive statistics showing transcript length distributions across datasets  
+**Reviewer Question Answered:** "What is the typical size and variability of input transcripts?"  
+**Accessibility Need:** Non-technical users need to run this without understanding parallel processing or DataFrame operations
+
+### word_frequency_analysis.py - **Vocabulary Analysis**
+**MRM Requirement:** Show consistency and distribution of vocabulary across train/test/validation sets  
+**Output for MRM:** Word frequency tables showing coverage and distribution  
+**Reviewer Question Answered:** "Are there vocabulary shifts between datasets that could affect model performance?"  
+**Accessibility Need:** Semi-technical users need to understand which datasets to compare and where outputs go
+
+### tpr_fpr_curve.py - **Model Performance Evaluation**
+**MRM Requirement:** Standard classification performance metrics (ROC curve, AUC)  
+**Output for MRM:** Publication-quality ROC curve plots with AUC values  
+**Reviewer Question Answered:** "How well does the model discriminate between classes?"  
+**Accessibility Need:** Business users need to generate these plots from prediction files without understanding scikit-learn internals
+
+---
+
+## Evolution Roadmap
+
+**Phase 1 (Current):** Working scripts for technical users  
+- ✅ Core analysis functions (word stats, frequency analysis, ROC curves)
+- ✅ Logging and error handling
+- ✅ Example usage patterns
+
+**Phase 2 (In Progress):** Refactoring for UI integration  
+- 🔄 Standardize input/output interfaces
+- 🔄 Improve error messages for non-technical users
+- 🔄 Add input validation and helpful error guidance
+- 🔄 Extract core logic from hardcoded example code
+
+**Phase 3 (Next):** UI Development  
+- 📋 Simple UI where users can:
+  - Point to dataset directories (file browser)
+  - Point to model prediction files (file browser)
+  - Select which analyses to run (checkboxes)
+  - Specify output directory (file browser)
+  - Click "Generate MRM Report" button
+- 📋 Progress indicators during long-running analyses
+- 📋 Summary dashboard showing generated outputs
+
+**Phase 4 (Future):** Enterprise Integration  
+- 📋 Configuration templates for common model types
+- 📋 Batch processing for multiple models
+- 📋 Integration with model deployment pipelines
+- 📋 PDF report generation with all MRM artifacts
