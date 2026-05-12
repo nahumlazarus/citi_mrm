@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "model": "claude-opus-4-7",
+  "effortLevel": "high",
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true,
+    "serena@claude-plugins-official": true
+  },
+  "enableAllProjectMcpServers": true
+}

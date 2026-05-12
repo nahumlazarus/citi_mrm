@@ -1,0 +1,27 @@
+# Citi MRM Tools - Requirements
+# Target environment: Conda Python 3.7.4 base
+# Generated: 2026-05-11
+
+# Core data processing
+pandas>=0.25.0,<2.0.0  # 0.25.0 was released around Python 3.7.4 era
+numpy>=1.17.0,<1.22.0  # 1.22+ drops Python 3.7 support
+
+# Visualization
+matplotlib>=3.1.0,<3.6.0  # 3.1 was stable with Python 3.7, 3.6+ drops 3.7 support
+
+# Machine learning
+scikit-learn>=0.21.0,<1.1.0  # 0.21+ compatible with Python 3.7, 1.1+ drops 3.7 support
+
+# Progress bars
+tqdm>=4.32.0,<5.0.0  # 4.32+ works with Python 3.7
+
+# Note: All standard library modules are included with Python 3.7.4
+# - logging
+# - pathlib (backported to 3.4+)
+# - glob
+# - re
+# - os
+# - datetime
+# - collections
+# - typing (3.5+)
+# - concurrent.futures (3.2+)
