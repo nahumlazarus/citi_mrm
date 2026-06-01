@@ -105,6 +105,8 @@ def load_config(config_path: str) -> dict:
     try:
         with open(config_path, 'r') as f:
             config = yaml.safe_load(f)
+        if config is None:
+            config = {}
         return config
     except FileNotFoundError:
         raise FileNotFoundError(f"Config file not found: {config_path}")
