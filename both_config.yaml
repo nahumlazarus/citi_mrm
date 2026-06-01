@@ -1,7 +1,0 @@
-output_file: "./outputs/test_both.csv"
-datasets:
-  - name: "BothTest"
-    manifest_csv: "./test_manifest.csv"
-    file_col: "File"
-    group_by_lob: "LineOfBusiness"
-    group_by_dataset: "DatasetType"

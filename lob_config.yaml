@@ -1,6 +1,0 @@
-output_file: "./outputs/test_lob.csv"
-datasets:
-  - name: "LOBTest"
-    manifest_csv: "./test_manifest.csv"
-    file_col: "File"
-    group_by_lob: "LineOfBusiness"

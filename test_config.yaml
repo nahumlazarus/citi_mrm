@@ -1,5 +1,0 @@
-output_file: "./outputs/test.csv"
-datasets:
-  - name: "Test"
-    manifest_csv: "./test_manifest.csv"
-    file_col: "File"
