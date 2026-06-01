@@ -9,7 +9,7 @@ import re
 from datetime import datetime
 from matplotlib import pyplot as plt
 import yaml
-from typing import List
+from typing import List, Optional
 
 
 # Configure logger with shared log file
@@ -67,7 +67,7 @@ def word_stats_by_label(datasets: list, file_col: str, label_col: str, save_path
     return word_cnt_analysis
 
 
-def word_stats(datasets: list, file_col: str, save_path: str):
+def word_stats(datasets: list, file_col: str, save_path: Optional[str]):
     """
     This function generates the statistics of the number of unigrams per transcript. The statistics are calculated per dataset.
     This was previously callsed word_stats2.
