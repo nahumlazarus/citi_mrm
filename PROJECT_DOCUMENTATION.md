@@ -93,12 +93,37 @@ As we evolve toward broader accessibility:
 ### 1. **word_statistics.py**
 **Purpose:** Generate descriptive statistics about the number of unigrams (words) per transcript.
 
-**Key Functions:**
-- `get_word_count(file)` - Counts words in a single transcript file
-- `word_stats_by_label(datasets, file_col, label_col, save_path)` - Calculates word count statistics grouped by dataset AND label
-- `word_stats(datasets, file_col, save_path)` - Calculates word count statistics grouped by dataset only
+**Recommended Usage (Config-Driven):**
+Users modify `config_word_stats.yaml` and run:
+```bash
+python word_statistics.py
+# or with custom config:
+python word_statistics.py --config my_analysis.yaml
+```
 
-**Input Format:**
+**Config Structure:**
+```yaml
+output_file: "./outputs/word_stats.csv"
+datasets:
+  - name: "Analysis"
+    manifest_csv: "./files.csv"     # CSV with phrase reco file paths
+    file_col: "File"                # Column containing file paths
+    group_by_lob: "LineOfBusiness"  # Optional: LOB grouping
+    group_by_dataset: "DatasetType" # Optional: DEV/VAL grouping
+```
+
+**Grouping Behavior:**
+- No grouping: Single combined output
+- LOB only: One row per LOB value
+- Dataset only: One row per dataset value  
+- Both: Creates `{name}_{dataset}_combined` + `{name}_{dataset}_{lob}` rows
+
+**Programmatic API (Legacy, Still Supported):**
+- `get_word_count(file)` - Counts words in a single transcript file
+- `word_stats_by_label(datasets, file_col, label_col, save_path)` - Statistics grouped by dataset AND label
+- `word_stats(datasets, file_col, save_path)` - Statistics grouped by dataset only
+
+**Input Format (Programmatic):**
 - Datasets: List of tuples `('dataset_name', dataframe)`
 - Dataframe must contain:
   - File path column (phrase reco .csv.zip files)
@@ -106,7 +131,7 @@ As we evolve toward broader accessibility:
 
 **Output:**
 - CSV file with descriptive statistics (count, mean, std, min, 25%, 50%, 75%, max)
-- Statistics per dataset or per dataset+label combination
+- Statistics per dataset or per grouping combination
 
 **Phrase Reco Format Expected:**
 ```
@@ -258,7 +283,17 @@ Column 7: Score (confidence score)
 ## Example Usage Patterns
 
 ### word_statistics.py
+
+**Config-driven (recommended):**
+```bash
+python word_statistics.py --config my_config.yaml
+```
+
+**Programmatic:**
 ```python
+from word_statistics import word_stats
+import pandas as pd
+
 datasets = [
     ('DEV', pd.DataFrame({'File': dev_file_paths})),
     ('ITV', pd.DataFrame({'File': itv_file_paths}))
@@ -313,7 +348,7 @@ Scripts expect/create these directories:
 **MRM Requirement:** Demonstrate understanding of input data characteristics  
 **Output for MRM:** Descriptive statistics showing transcript length distributions across datasets  
 **Reviewer Question Answered:** "What is the typical size and variability of input transcripts?"  
-**Accessibility Need:** Non-technical users need to run this without understanding parallel processing or DataFrame operations
+**Accessibility Need:** ✅ **ACHIEVED** - Users modify YAML config and click "Run" in VSCode. No Python knowledge required.
 
 ### word_frequency_analysis.py - **Vocabulary Analysis**
 **MRM Requirement:** Show consistency and distribution of vocabulary across train/test/validation sets  
@@ -337,10 +372,10 @@ Scripts expect/create these directories:
 - ✅ Example usage patterns
 
 **Phase 2 (In Progress):** Refactoring for UI integration  
-- 🔄 Standardize input/output interfaces
-- 🔄 Improve error messages for non-technical users
-- 🔄 Add input validation and helpful error guidance
-- 🔄 Extract core logic from hardcoded example code
+- ✅ Standardize input/output interfaces (word_statistics.py, tpr_fpr_curve.py)
+- ✅ Improve error messages for non-technical users (config validation)
+- ✅ Add input validation and helpful error guidance (validate_config)
+- 🔄 Extract core logic from hardcoded example code (word_frequency_analysis.py remaining)
 
 **Phase 3 (Next):** UI Development  
 - 📋 Simple UI where users can:
