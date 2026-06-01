@@ -86,7 +86,8 @@ def word_stats(datasets: list, file_col: str, save_path: str):
         logger.info(f'{dataset_name} stats complete. Saving')
 
     word_cnt_analysis = pd.concat(word_cnt_analysis_list)
-    word_cnt_analysis.to_csv(save_path, sep='\t', header=True, index=True)
+    if save_path:
+        word_cnt_analysis.to_csv(save_path, sep='\t', header=True, index=True)
     return word_cnt_analysis
 
 
@@ -211,6 +212,99 @@ def validate_config(config: dict) -> List[str]:
         seen_names.add(name)
 
     return errors
+
+
+def run_from_config(config: dict) -> None:
+    """Execute word statistics analysis from validated config.
+
+    Args:
+        config: Validated configuration dictionary
+
+    Note: Config must be validated before calling this function.
+    """
+    all_stats = []
+    output_file = config['output_file']
+
+    logger.info("Starting word statistics analysis from config")
+
+    for dataset in config['datasets']:
+        ds_name = dataset['name']
+        manifest_csv = dataset['manifest_csv']
+        file_col = dataset['file_col']
+        group_by_lob = dataset.get('group_by_lob')
+        group_by_dataset = dataset.get('group_by_dataset')
+
+        try:
+            # Load manifest
+            manifest_df = pd.read_csv(manifest_csv)
+            logger.info(f"Processing dataset: {ds_name} ({len(manifest_df)} files in manifest)")
+
+            # Case 1: No grouping
+            if not group_by_lob and not group_by_dataset:
+                logger.info("No grouping specified - creating single combined output")
+                result = word_stats([(ds_name, manifest_df)], file_col, None)
+                all_stats.append(result)
+
+            # Case 2: LOB grouping only
+            elif group_by_lob and not group_by_dataset:
+                lob_values = sorted(manifest_df[group_by_lob].unique())
+                logger.info(f"Grouping by LOB: {len(lob_values)} groups: {lob_values}")
+                for lob_value in lob_values:
+                    df_lob = manifest_df[manifest_df[group_by_lob] == lob_value]
+                    row_name = f"{ds_name}_{lob_value}"
+                    logger.info(f"Processing {row_name} ({len(df_lob)} files)")
+                    result = word_stats([(row_name, df_lob)], file_col, None)
+                    all_stats.append(result)
+
+            # Case 3: Dataset grouping only
+            elif not group_by_lob and group_by_dataset:
+                dataset_values = sorted(manifest_df[group_by_dataset].unique())
+                logger.info(f"Grouping by dataset: {len(dataset_values)} groups: {dataset_values}")
+                for dataset_value in dataset_values:
+                    df_dataset = manifest_df[manifest_df[group_by_dataset] == dataset_value]
+                    row_name = f"{ds_name}_{dataset_value}"
+                    logger.info(f"Processing {row_name} ({len(df_dataset)} files)")
+                    result = word_stats([(row_name, df_dataset)], file_col, None)
+                    all_stats.append(result)
+
+            # Case 4: Both LOB and Dataset grouping
+            else:
+                dataset_values = sorted(manifest_df[group_by_dataset].unique())
+                logger.info("Grouping by both LOB and dataset")
+                logger.info(f"Found {len(dataset_values)} dataset values: {dataset_values}")
+
+                for dataset_value in dataset_values:
+                    df_dataset = manifest_df[manifest_df[group_by_dataset] == dataset_value]
+                    logger.info(f"Processing {ds_name}_{dataset_value} ({len(df_dataset)} files)")
+
+                    # Create combined for this dataset
+                    combined_name = f"{ds_name}_{dataset_value}_combined"
+                    logger.info(f"Creating {combined_name}")
+                    result = word_stats([(combined_name, df_dataset)], file_col, None)
+                    all_stats.append(result)
+
+                    # Create individual LOB splits within this dataset
+                    lob_values = sorted(df_dataset[group_by_lob].unique())
+                    logger.info(f"Found {len(lob_values)} LOB values: {lob_values}")
+                    for lob_value in lob_values:
+                        df_lob = df_dataset[df_dataset[group_by_lob] == lob_value]
+                        row_name = f"{ds_name}_{dataset_value}_{lob_value}"
+                        logger.info(f"Creating {row_name} ({len(df_lob)} files)")
+                        result = word_stats([(row_name, df_lob)], file_col, None)
+                        all_stats.append(result)
+
+        except Exception as e:
+            logger.error(f"Failed to process dataset '{ds_name}': {e}")
+            continue
+
+    # Concatenate all results and save
+    if all_stats:
+        final_stats = pd.concat(all_stats)
+        final_stats.to_csv(output_file, sep='\t', header=True, index=True)
+        logger.info(f"Analysis complete: processed {len(config['datasets'])} datasets, created {len(final_stats)} output rows")
+        logger.info(f"Saved to {output_file}")
+    else:
+        logger.error("No statistics generated - all datasets failed")
 
 
 if __name__ == "__main__":
