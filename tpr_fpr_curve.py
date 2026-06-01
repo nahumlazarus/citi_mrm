@@ -11,6 +11,7 @@ ROC AUC and the Matplotlib Figure for programmatic use.
 from pathlib import Path
 import os
 import re
+import sys
 import logging
 from typing import Optional, Tuple, Iterable, List
 
@@ -196,6 +197,84 @@ def validate_config(config: dict) -> List[str]:
             errors.append(f"Dataset '{ds_name}': failed to load CSV: {e}")
 
     return errors
+
+
+def run_from_config(config: dict) -> None:
+    """
+    Process all datasets from validated config.
+
+    Args:
+        config: Validated configuration dictionary
+
+    Returns:
+        None (exits with code 0 if all succeeded, 1 if any failed)
+    """
+    output_dir = config['output_dir']
+
+    # Create output directory
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+    logger.info('Starting ROC analysis from config')
+
+    success_count = 0
+    failure_count = 0
+    total_count = len(config['datasets'])
+
+    for dataset in config['datasets']:
+        ds_name = dataset['name']
+        csv_path = dataset['csv_path']
+        pred_col = dataset['pred_col']
+        truth_col = dataset['truth_col']
+        score_col = dataset['score_col']
+        group_by = dataset.get('group_by')
+
+        try:
+            # Load CSV
+            logger.info(f"Processing dataset: {ds_name}")
+            df = pd.read_csv(csv_path)
+            logger.info(f"Loaded CSV from {csv_path}")
+
+            if group_by:
+                # Stratified analysis
+                logger.info(f"Dataset grouped by {group_by}")
+                group_values = sorted(df[group_by].unique())
+                logger.info(f"Found {len(group_values)} groups: {', '.join(map(str, group_values))}")
+
+                for group_value in group_values:
+                    df_group = df[df[group_by] == group_value]
+                    group_name = f"{ds_name}_{group_value}"
+                    logger.info(f"Processing group: {group_name} ({len(df_group)} rows)")
+
+                    recall_vs_fpr_curve(
+                        df=df_group,
+                        pred_col=pred_col,
+                        truth_col=truth_col,
+                        score_col=score_col,
+                        dataset_name=group_name,
+                        save_dir=output_dir
+                    )
+            else:
+                # Simple analysis
+                recall_vs_fpr_curve(
+                    df=df,
+                    pred_col=pred_col,
+                    truth_col=truth_col,
+                    score_col=score_col,
+                    dataset_name=ds_name,
+                    save_dir=output_dir
+                )
+
+            success_count += 1
+
+        except Exception as e:
+            logger.error(f"Failed to process dataset '{ds_name}': {e}")
+            failure_count += 1
+
+    # Log summary
+    logger.info(f"Analysis complete: {success_count}/{total_count} datasets processed successfully")
+
+    # Exit with appropriate code
+    if failure_count > 0:
+        sys.exit(1)
 
 
 def recall_vs_fpr_curve(
