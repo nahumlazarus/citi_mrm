@@ -1,0 +1,2 @@
+datasets:
+  - manifest_csv: "./test.csv"

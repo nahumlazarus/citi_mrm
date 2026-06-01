@@ -9,6 +9,7 @@ import re
 from datetime import datetime
 from matplotlib import pyplot as plt
 import yaml
+from typing import List
 
 
 # Configure logger with shared log file
@@ -112,6 +113,104 @@ def load_config(config_path: str) -> dict:
         raise FileNotFoundError(f"Config file not found: {config_path}")
     except yaml.YAMLError as e:
         raise yaml.YAMLError(f"Error parsing YAML config: {e}")
+
+
+def validate_config(config: dict) -> List[str]:
+    """Validate configuration structure and file availability.
+
+    Args:
+        config: Dictionary from load_config()
+
+    Returns:
+        List of error messages (empty if valid)
+    """
+    errors = []
+
+    # Check top-level structure
+    if not config:
+        errors.append("Config is empty")
+        return errors
+
+    if 'output_file' not in config or not config['output_file']:
+        errors.append("Missing required field: output_file")
+
+    if 'datasets' not in config:
+        errors.append("Missing required field: datasets")
+        return errors
+
+    if not isinstance(config['datasets'], list) or len(config['datasets']) == 0:
+        errors.append("datasets must be a non-empty list")
+        return errors
+
+    # Check output file parent directory exists
+    if 'output_file' in config and config['output_file']:
+        output_path = Path(config['output_file'])
+        if not output_path.parent.exists():
+            errors.append(f"Output file parent directory does not exist: {output_path.parent}")
+
+    # Track dataset names for duplicate check
+    dataset_names = []
+
+    # Validate each dataset
+    for idx, dataset in enumerate(config['datasets']):
+        ds_name = dataset.get('name', f'dataset[{idx}]')
+
+        # Check required fields
+        if 'name' not in dataset or not dataset['name']:
+            errors.append(f"Dataset {idx}: missing required field 'name'")
+            ds_name = f'dataset[{idx}]'
+
+        if 'manifest_csv' not in dataset or not dataset['manifest_csv']:
+            errors.append(f"Dataset '{ds_name}': missing required field 'manifest_csv'")
+            continue
+
+        if 'file_col' not in dataset or not dataset['file_col']:
+            errors.append(f"Dataset '{ds_name}': missing required field 'file_col'")
+
+        # Check manifest file exists
+        manifest_path = Path(dataset['manifest_csv'])
+        if not manifest_path.exists():
+            errors.append(f"Dataset '{ds_name}': manifest CSV not found: {dataset['manifest_csv']}")
+            continue
+
+        # Try to load manifest and check columns
+        try:
+            manifest_df = pd.read_csv(manifest_path)
+
+            # Check file_col exists
+            file_col = dataset.get('file_col')
+            if file_col and file_col not in manifest_df.columns:
+                errors.append(f"Dataset '{ds_name}': column '{file_col}' not found in manifest CSV")
+
+            # Check group_by_lob column if specified
+            if 'group_by_lob' in dataset and dataset['group_by_lob']:
+                if dataset['group_by_lob'] not in manifest_df.columns:
+                    errors.append(f"Dataset '{ds_name}': group_by_lob column '{dataset['group_by_lob']}' not found in manifest CSV")
+
+            # Check group_by_dataset column if specified
+            if 'group_by_dataset' in dataset and dataset['group_by_dataset']:
+                if dataset['group_by_dataset'] not in manifest_df.columns:
+                    errors.append(f"Dataset '{ds_name}': group_by_dataset column '{dataset['group_by_dataset']}' not found in manifest CSV")
+
+            # Check manifest has data rows
+            if len(manifest_df) == 0:
+                errors.append(f"Dataset '{ds_name}': manifest CSV has no data rows")
+
+        except Exception as e:
+            errors.append(f"Dataset '{ds_name}': failed to load manifest CSV: {e}")
+
+        # Track name for duplicate check
+        if 'name' in dataset:
+            dataset_names.append(dataset['name'])
+
+    # Check for duplicate names
+    seen_names = set()
+    for name in dataset_names:
+        if name in seen_names:
+            errors.append(f"Duplicate dataset name: '{name}'")
+        seen_names.add(name)
+
+    return errors
 
 
 if __name__ == "__main__":

@@ -1,0 +1,3 @@
+File,LineOfBusiness,DatasetType
+/path/to/file1.csv.zip,Commercial,DEV
+/path/to/file2.csv.zip,Retail,VAL
