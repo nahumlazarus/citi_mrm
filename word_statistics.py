@@ -354,6 +354,7 @@ def main():
     try:
         run_from_config(config)
     except Exception as e:
+        print(f"Error: Analysis failed: {e}", file=sys.stderr)
         logger.error(f"Analysis failed: {e}")
         sys.exit(1)
 
