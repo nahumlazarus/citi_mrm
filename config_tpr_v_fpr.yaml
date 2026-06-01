@@ -1,0 +1,41 @@
+# TPR vs FPR (ROC Curve) Analysis Configuration
+#
+# This config file drives automated ROC curve generation.
+# Modify the settings below and run: python tpr_fpr_curve.py
+#
+# Required fields:
+#   - output_dir: Directory where plots will be saved
+#   - datasets: List of at least one dataset to analyze
+#
+# Per-dataset required fields:
+#   - csv_path: Path to CSV file with predictions
+#   - name: Label for this dataset (used in plot titles and filenames)
+#   - pred_col: Column name containing model predictions
+#   - truth_col: Column name containing ground truth labels
+#   - score_col: Column name containing model confidence scores
+#
+# Optional per-dataset fields:
+#   - group_by: Column name to stratify analysis (e.g., "LineOfBusiness")
+#               Creates separate plots for each unique value in this column
+
+# Output directory for all generated plots
+output_dir: "./outputs"
+
+# List of datasets to analyze
+datasets:
+  # Example 1: Simple analysis of one dataset
+  - csv_path: "./dummy_multiclass_predictions.csv"
+    name: "Test"
+    pred_col: "ModelPrediction"
+    truth_col: "TrueValue"
+    score_col: "PredictionScore"
+
+  # Example 2: Analysis stratified by Line of Business (commented out)
+  # Uncomment and modify to add more datasets
+  #
+  # - csv_path: "./validation_predictions.csv"
+  #   name: "Validation"
+  #   pred_col: "ModelPrediction"
+  #   truth_col: "TrueValue"
+  #   score_col: "PredictionScore"
+  #   group_by: "LineOfBusiness"  # Creates separate plot per LoB value
