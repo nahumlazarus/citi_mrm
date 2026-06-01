@@ -10,6 +10,8 @@ from datetime import datetime
 from matplotlib import pyplot as plt
 import yaml
 from typing import List, Optional
+import argparse
+import sys
 
 
 # Configure logger with shared log file
@@ -307,24 +309,56 @@ def run_from_config(config: dict) -> None:
         logger.error("No statistics generated - all datasets failed")
 
 
+def main():
+    """CLI entry point for config-driven word statistics analysis."""
+    parser = argparse.ArgumentParser(
+        description='Generate word count statistics from phrase reco files using YAML configuration.'
+    )
+    parser.add_argument(
+        '-c', '--config',
+        type=str,
+        default='config_word_stats.yaml',
+        help='Path to YAML config file (default: config_word_stats.yaml)'
+    )
+    args = parser.parse_args()
+
+    # Check config file exists
+    config_path = Path(args.config)
+    if not config_path.exists():
+        print(f"Error: Config file not found: {args.config}", file=sys.stderr)
+        print("\nCreate a config file or specify one with --config", file=sys.stderr)
+        print("\nExample config structure:", file=sys.stderr)
+        print("output_file: \"./outputs/word_stats.csv\"", file=sys.stderr)
+        print("datasets:", file=sys.stderr)
+        print("  - name: \"Analysis\"", file=sys.stderr)
+        print("    manifest_csv: \"./files.csv\"", file=sys.stderr)
+        print("    file_col: \"File\"", file=sys.stderr)
+        sys.exit(1)
+
+    # Load config
+    try:
+        config = load_config(str(config_path))
+    except Exception as e:
+        print(f"Error loading config: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # Validate config
+    errors = validate_config(config)
+    if errors:
+        print("Configuration validation failed:", file=sys.stderr)
+        for error in errors:
+            print(f"  - {error}", file=sys.stderr)
+        sys.exit(1)
+
+    # Run analysis
+    try:
+        run_from_config(config)
+    except Exception as e:
+        logger.error(f"Analysis failed: {e}")
+        sys.exit(1)
+
+
 if __name__ == "__main__":
-    # Example use:
-    prs = glob.glob(".\\Media\\Telco\\PhraseReco\\*.zip")
-    prs_dev = prs[0:10]
-    prs_itv = prs[10::]
-    print(len(prs_dev), len(prs_itv ))
-
-    datasets = [('DEV', pd.DataFrame({'File': prs_dev})), ('ITV', pd.DataFrame({'File': prs_itv}))]
-
-    # caars_janjun25_pr = pd.DataFrame({'File': glob.glob(r'S:\Nicetech\ForResearch\005_CAARS_Validations\PhraseRecos\CAARS_JanJun25\*.zip')})
-    # caars_janjun25_pr['InteractionID'] = caars_janjun25_pr.File.str.split('\\').str[-1].str.split('_').str[1].astype(str)
-    # caars_janjun25_pr.head()
-
-    # caars_janjun25_pr_lob = [('Combined', caars_janjun25_pr)]
-    # for lob in caars_janjun25_labels.LOB.unique():
-    #     lob_ints = caars_janjun25_labels[caars_janjun25_labels.LOB==lob]['Interaction ID (NICE)']
-        # caars_janjun25_pr_lob.append((f'CAARS_JanJun25_{lob}', caars_janjun25_pr[caars_janjun25_pr.InteractionID.isin(lob_ints)]))
-    word_stats_save_p = '.\\outputs\\word_stats_test.csv'
-    caars_janjun25_word_stats = word_stats(datasets, 'File', word_stats_save_p)
+    main()
 
 
