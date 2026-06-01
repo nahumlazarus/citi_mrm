@@ -17,6 +17,7 @@ import pandas as pd
 import numpy as np
 from sklearn.metrics import roc_auc_score, roc_curve
 from matplotlib import pyplot as plt
+import yaml
 
 
 # Configure logger with shared log file
@@ -44,6 +45,30 @@ logger = _setup_logger()
 def _sanitize_filename(name: str) -> str:
     """Make a filesystem-safe filename fragment from `name`."""
     return re.sub(r"[^0-9A-Za-z._-]", "_", str(name))
+
+
+def load_config(config_path: str) -> dict:
+    """
+    Load YAML configuration file.
+
+    Args:
+        config_path: Path to YAML config file
+
+    Returns:
+        Dictionary with config contents
+
+    Raises:
+        FileNotFoundError: If config file doesn't exist
+        yaml.YAMLError: If YAML is malformed
+    """
+    try:
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+        return config
+    except FileNotFoundError:
+        raise FileNotFoundError(f"Config file not found: {config_path}")
+    except yaml.YAMLError as e:
+        raise yaml.YAMLError(f"Error parsing YAML config: {e}")
 
 
 def recall_vs_fpr_curve(
