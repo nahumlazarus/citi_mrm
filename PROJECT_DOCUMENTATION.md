@@ -151,8 +151,11 @@ Nxpr | Channel | Type | Phrase | StartCS | EndCS | Score
 ### 3. **tpr_fpr_curve.py**
 **Purpose:** Generate ROC (Receiver Operating Characteristic) curves for model evaluation.
 
-**Key Function:**
-- `recall_vs_fpr_curve(df, pred_col, truth_col, score_col, dataset_name, save_dir)` - Computes and plots TPR vs FPR
+**Key Functions:**
+- `recall_vs_fpr_curve(df, pred_col, truth_col, score_col, dataset_name, save_dir)` - Computes and plots TPR vs FPR (library API)
+- `main()` - Config-driven CLI entry point (recommended for users)
+- `run_from_config(config)` - Processes multiple datasets from YAML config
+- `validate_config(config)` - Comprehensive validation with helpful error messages
 
 **Metrics Calculated:**
 - **TPR (True Positive Rate / Recall)** - Sensitivity of the model
@@ -174,6 +177,27 @@ Nxpr | Channel | Type | Phrase | StartCS | EndCS | Score
 - Handles degenerate cases (all same labels)
 - Coerces non-numeric scores to 0.0
 - Creates output directory if needed
+
+**Config-Driven Usage (Recommended):**
+Users can now run ROC analysis by modifying `config_tpr_v_fpr.yaml`:
+```yaml
+output_dir: "./outputs"
+datasets:
+  - csv_path: "./test_predictions.csv"
+    name: "Test"
+    pred_col: "ModelPrediction"
+    truth_col: "TrueValue"
+    score_col: "PredictionScore"
+    group_by: "LineOfBusiness"  # Optional: creates separate plots per LoB
+```
+
+Run: `python tpr_fpr_curve.py`
+
+**Stratification Support:**
+When `group_by` is specified, the script generates separate ROC curves for each unique value in that column. Output files are named `tpr_v_fpr_{dataset_name}_{group_value}.png`.
+
+**Multi-Dataset Support:**
+Multiple datasets can be analyzed in a single run by adding more entries to the `datasets` list in the config file.
 
 ---
 

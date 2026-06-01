@@ -64,7 +64,29 @@ ref_words = list(set(words))
 counts = word_freq(ref_words, words, 4, 'DEV', './outputs')
 ```
 
-### ROC Curve
+### ROC Curve (YAML Config - Recommended)
+```python
+# 1. Edit config_tpr_v_fpr.yaml with your settings
+# 2. Run the script
+python tpr_fpr_curve.py
+
+# Or specify custom config
+python tpr_fpr_curve.py --config my_analysis.yaml
+```
+
+**Config format:**
+```yaml
+output_dir: "./outputs"
+datasets:
+  - csv_path: "./predictions.csv"
+    name: "Test"
+    pred_col: "ModelPrediction"
+    truth_col: "TrueValue"
+    score_col: "PredictionScore"
+    # group_by: "LineOfBusiness"  # Optional stratification
+```
+
+### ROC Curve (Programmatic - Legacy)
 ```python
 from tpr_fpr_curve import recall_vs_fpr_curve
 import pandas as pd
