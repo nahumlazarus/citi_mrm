@@ -8,6 +8,7 @@ import numpy as np
 import re
 from datetime import datetime
 from matplotlib import pyplot as plt
+import yaml
 
 
 # Configure logger with shared log file
@@ -86,6 +87,29 @@ def word_stats(datasets: list, file_col: str, save_path: str):
     word_cnt_analysis = pd.concat(word_cnt_analysis_list)
     word_cnt_analysis.to_csv(save_path, sep='\t', header=True, index=True)
     return word_cnt_analysis
+
+
+def load_config(config_path: str) -> dict:
+    """Load YAML configuration file.
+
+    Args:
+        config_path: Path to YAML config file
+
+    Returns:
+        Dictionary with config data
+
+    Raises:
+        FileNotFoundError: Config file not found
+        yaml.YAMLError: Invalid YAML syntax
+    """
+    try:
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+        return config
+    except FileNotFoundError:
+        raise FileNotFoundError(f"Config file not found: {config_path}")
+    except yaml.YAMLError as e:
+        raise yaml.YAMLError(f"Error parsing YAML config: {e}")
 
 
 if __name__ == "__main__":

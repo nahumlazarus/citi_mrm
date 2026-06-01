@@ -1,0 +1,5 @@
+output_file: "./test.csv"
+datasets:
+  - name: "Test"
+    manifest_csv: "./manifest.csv"
+    file_col: "File"
