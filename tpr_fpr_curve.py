@@ -12,6 +12,7 @@ from pathlib import Path
 import os
 import re
 import sys
+import argparse
 import logging
 from typing import Optional, Tuple, Iterable, List
 
@@ -277,6 +278,59 @@ def run_from_config(config: dict) -> None:
         sys.exit(1)
 
 
+def main():
+    """
+    CLI entry point for config-driven ROC curve generation.
+    """
+    parser = argparse.ArgumentParser(
+        description='Generate TPR vs FPR (ROC) curves from model predictions using YAML configuration.'
+    )
+    parser.add_argument(
+        '-c', '--config',
+        type=str,
+        default='config_tpr_v_fpr.yaml',
+        help='Path to YAML config file (default: config_tpr_v_fpr.yaml)'
+    )
+    args = parser.parse_args()
+
+    # Check config file exists
+    config_path = Path(args.config)
+    if not config_path.exists():
+        print(f"Error: Config file not found: {args.config}", file=sys.stderr)
+        print("\nCreate a config file or specify one with --config", file=sys.stderr)
+        print("\nExample config structure:", file=sys.stderr)
+        print("output_dir: \"./outputs\"", file=sys.stderr)
+        print("datasets:", file=sys.stderr)
+        print("  - csv_path: \"./predictions.csv\"", file=sys.stderr)
+        print("    name: \"Test\"", file=sys.stderr)
+        print("    pred_col: \"ModelPrediction\"", file=sys.stderr)
+        print("    truth_col: \"TrueValue\"", file=sys.stderr)
+        print("    score_col: \"PredictionScore\"", file=sys.stderr)
+        sys.exit(1)
+
+    # Load config
+    try:
+        config = load_config(str(config_path))
+    except Exception as e:
+        print(f"Error loading config: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # Validate config
+    errors = validate_config(config)
+    if errors:
+        print("Configuration validation failed:", file=sys.stderr)
+        for error in errors:
+            print(f"  - {error}", file=sys.stderr)
+        sys.exit(1)
+
+    # Run analysis
+    try:
+        run_from_config(config)
+    except Exception as e:
+        logger.error(f"Analysis failed: {e}")
+        sys.exit(1)
+
+
 def recall_vs_fpr_curve(
     df: pd.DataFrame,
     pred_col: str,
@@ -349,23 +403,4 @@ def recall_vs_fpr_curve(
 
 
 if __name__ == "__main__":
-    # Example use
-    try:
-        example_path = r'.\dummy_multiclass_predictions.csv'
-        df = pd.read_csv(example_path)
-        logger.info('Loaded example data from %s', example_path)
-        # Ensure Interaction ID is string if present
-        if 'InteractionID' in df.columns:
-            df['InteractionID'] = df['InteractionID'].astype(str)
-
-        save_p = r'.\test_tpr_fpr'
-        recall_vs_fpr_curve(
-            df,
-            pred_col='ModelPrediction',
-            truth_col='TrueValue',
-            score_col='PredictionScore',
-            dataset_name='Test',
-            save_dir=save_p
-        )
-    except FileNotFoundError:
-        logger.error('Example CSV not found; update the example path or use the function programmatically.')
+    main()
