@@ -1,0 +1,54 @@
+# Word Statistics Analysis Configuration
+#
+# Generates descriptive statistics (count, mean, std, min, 25%, 50%, 75%, max)
+# about word counts per transcript from phrase reco files.
+#
+# Run: python word_statistics.py
+#
+# Required fields:
+#   - output_file: Path to output CSV file
+#   - datasets: List of at least one dataset to analyze
+#
+# Per-dataset required fields:
+#   - name: Dataset label (used in output row names)
+#   - manifest_csv: Path to CSV file containing phrase reco file paths
+#   - file_col: Column name in manifest CSV with file paths
+#
+# Optional per-dataset grouping fields:
+#   - group_by_lob: Column name for Line of Business grouping
+#   - group_by_dataset: Column name for DEV/VAL dataset grouping
+#
+# Grouping behavior:
+#   - Neither specified: Single combined output row
+#   - Only LOB: One row per LOB value
+#   - Only Dataset: One row per dataset value
+#   - Both: Creates dataset_combined + dataset_lob rows
+#           (NO combined across different dataset values)
+
+# Output CSV file path
+output_file: "./outputs/word_stats.csv"
+
+# List of datasets to analyze
+datasets:
+  # Example 1: Simple analysis (no grouping)
+  - name: "Q1_Analysis"
+    manifest_csv: "./data/q1_files.csv"
+    file_col: "File"
+
+  # Example 2: LOB grouping (commented out)
+  # Creates: Q2_Analysis_Commercial, Q2_Analysis_Retail, etc.
+  #
+  # - name: "Q2_Analysis"
+  #   manifest_csv: "./data/q2_files.csv"
+  #   file_col: "File"
+  #   group_by_lob: "LineOfBusiness"
+
+  # Example 3: Both LOB and Dataset grouping (commented out)
+  # Creates: Q3_DEV_combined, Q3_DEV_Commercial, Q3_DEV_Retail,
+  #          Q3_VAL_combined, Q3_VAL_Commercial, Q3_VAL_Retail
+  #
+  # - name: "Q3_Analysis"
+  #   manifest_csv: "./data/q3_files.csv"
+  #   file_col: "File"
+  #   group_by_lob: "LineOfBusiness"
+  #   group_by_dataset: "DatasetType"
