@@ -65,6 +65,7 @@ Enhancements:
 def get_transcript_unigrams(file_path: str) -> Iterable[str]:
     """
     Takes in a transcript in phrase reco format and extracts the unigrams.
+    Returns empty list on error (logged, not raised).
 
     Inputs:
     1. Single transcript in phrase reco format.
@@ -72,10 +73,13 @@ def get_transcript_unigrams(file_path: str) -> Iterable[str]:
     Outputs:
     1. List of unigrams from the transcript.
     """
-
-    tscript = pd.read_csv(file_path, sep='\t', header=None, names=['Nxpr', 'Channel', 'Type', 'Phrase', 'StartCS', 'EndCS', 'Score'])
-    words = list(tscript[tscript['Type']=='T']['Phrase'])
-    return words
+    try:
+        tscript = pd.read_csv(file_path, sep='\t', header=None, names=['Nxpr', 'Channel', 'Type', 'Phrase', 'StartCS', 'EndCS', 'Score'])
+        words = list(tscript[tscript['Type']=='T']['Phrase'])
+        return words
+    except Exception as e:
+        logger.warning(f"Failed to read {file_path}: {e}")
+        return []
 
 
 def get_dataset_unigrams(file_paths: Iterable[str], max_workers: int, dataset_name: str ='') -> Iterable[str]:
