@@ -164,6 +164,33 @@ def word_freq(ref_words: Iterable[str], words: Iterable[str], max_workers: int, 
     word_cnts.to_csv(save_path, sep='\t', header=True, index=False)
     return word_cnts
 
+
+def load_config(config_path: str) -> dict:
+    """Load YAML configuration file.
+
+    Args:
+        config_path: Path to YAML config file
+
+    Returns:
+        Dictionary with config data
+
+    Raises:
+        FileNotFoundError: Config file not found
+        yaml.YAMLError: Invalid YAML syntax
+        ValueError: Config file is empty
+    """
+    try:
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+        if not config:
+            raise ValueError("Config file is empty")
+        return config
+    except FileNotFoundError:
+        raise FileNotFoundError(f"Config file not found: {config_path}")
+    except yaml.YAMLError as e:
+        raise yaml.YAMLError(f"Error parsing YAML config: {e}")
+
+
 if __name__ == "__main__":
     # Example use:
     prs = glob.glob(".\\Media\\Telco\\PhraseReco\\*.zip")

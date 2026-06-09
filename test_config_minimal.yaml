@@ -1,0 +1,7 @@
+output_dir: "./outputs"
+reference_dataset: null
+max_workers: null
+datasets:
+  - name: "Test"
+    manifest_csv: "./test.csv"
+    file_col: "File"
