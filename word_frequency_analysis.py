@@ -311,6 +311,225 @@ def validate_config(config: dict) -> List[str]:
     return errors
 
 
+def process_single_group(output_name, manifest_df, file_col,
+                        ref_words, is_independent_mode,
+                        max_workers, output_dir):
+    """Process a single dataset or group and generate frequency output.
+
+    Args:
+        output_name: Name for output file (e.g., "DEV_Commercial")
+        manifest_df: DataFrame with file paths (for this group only)
+        file_col: Column containing file paths
+        ref_words: Reference unigram list (or None for independent mode)
+        is_independent_mode: If True, build own reference from this data
+        max_workers: Worker count for parallel processing
+        output_dir: Output directory
+    """
+    file_paths = manifest_df[file_col].tolist()
+    logger.info(f"Processing {output_name} ({len(file_paths)} files)")
+
+    # Extract unigrams from this group's files
+    words = get_dataset_unigrams(file_paths, max_workers, output_name)
+
+    # Determine reference to use
+    if is_independent_mode:
+        # Independent mode: use this group's own unigrams as reference
+        ref_words = list(set(words))
+        logger.info(f"{output_name}: Built own reference ({len(ref_words)} unique unigrams)")
+    # else: use pre-built ref_words from cross-dataset mode
+
+    # Generate frequency analysis
+    word_freq(ref_words, words, max_workers, output_name, output_dir)
+
+
+def process_dataset_with_grouping(ds_name, manifest_df, file_col,
+                                  group_by_lob, group_by_dataset,
+                                  ref_words, is_independent_mode,
+                                  max_workers, output_dir):
+    """Apply grouping logic and generate frequency outputs.
+
+    Args:
+        ds_name: Dataset name
+        manifest_df: DataFrame with file paths and grouping columns
+        file_col: Column containing file paths
+        group_by_lob: LOB grouping column name (or None)
+        group_by_dataset: Dataset grouping column name (or None)
+        ref_words: Reference unigram list (or None for independent mode)
+        is_independent_mode: If True, each group builds own reference
+        max_workers: Worker count
+        output_dir: Output directory
+    """
+
+    # Case 1: No grouping
+    if not group_by_lob and not group_by_dataset:
+        logger.info("No grouping specified - single output")
+        process_single_group(
+            ds_name, manifest_df, file_col,
+            ref_words, is_independent_mode,
+            max_workers, output_dir
+        )
+
+    # Case 2: LOB grouping only
+    elif group_by_lob and not group_by_dataset:
+        lob_values = sorted(manifest_df[group_by_lob].unique())
+        logger.info(f"Grouping by LOB: {len(lob_values)} groups: {lob_values}")
+
+        # Create combined (all LOBs together)
+        combined_name = f"{ds_name}_combined"
+        logger.info(f"Creating {combined_name} ({len(manifest_df)} files)")
+        process_single_group(
+            combined_name, manifest_df, file_col,
+            ref_words, is_independent_mode,
+            max_workers, output_dir
+        )
+
+        # Create per-LOB outputs
+        for lob_value in lob_values:
+            df_lob = manifest_df[manifest_df[group_by_lob] == lob_value]
+            output_name = f"{ds_name}_{lob_value}"
+            logger.info(f"Creating {output_name} ({len(df_lob)} files)")
+            process_single_group(
+                output_name, df_lob, file_col,
+                ref_words, is_independent_mode,
+                max_workers, output_dir
+            )
+
+    # Case 3: Dataset grouping only
+    elif not group_by_lob and group_by_dataset:
+        dataset_values = sorted(manifest_df[group_by_dataset].unique())
+        logger.info(f"Grouping by dataset: {len(dataset_values)} groups: {dataset_values}")
+
+        # NO combined - just one output per dataset value
+        for dataset_value in dataset_values:
+            df_dataset = manifest_df[manifest_df[group_by_dataset] == dataset_value]
+            output_name = f"{ds_name}_{dataset_value}"
+            logger.info(f"Creating {output_name} ({len(df_dataset)} files)")
+            process_single_group(
+                output_name, df_dataset, file_col,
+                ref_words, is_independent_mode,
+                max_workers, output_dir
+            )
+
+    # Case 4: Both LOB and Dataset grouping (nested)
+    else:
+        dataset_values = sorted(manifest_df[group_by_dataset].unique())
+        logger.info(f"Grouping by both LOB and dataset: {len(dataset_values)} dataset values")
+
+        for dataset_value in dataset_values:
+            df_dataset = manifest_df[manifest_df[group_by_dataset] == dataset_value]
+            logger.info(f"Processing {ds_name}_{dataset_value} ({len(df_dataset)} files)")
+
+            # Create combined for this dataset value (all LOBs in this dataset)
+            combined_name = f"{ds_name}_{dataset_value}_combined"
+            logger.info(f"Creating {combined_name}")
+            process_single_group(
+                combined_name, df_dataset, file_col,
+                ref_words, is_independent_mode,
+                max_workers, output_dir
+            )
+
+            # Create individual LOB splits within this dataset value
+            lob_values = sorted(df_dataset[group_by_lob].unique())
+            logger.info(f"Found {len(lob_values)} LOB values: {lob_values}")
+            for lob_value in lob_values:
+                df_lob = df_dataset[df_dataset[group_by_lob] == lob_value]
+                output_name = f"{ds_name}_{dataset_value}_{lob_value}"
+                logger.info(f"Creating {output_name} ({len(df_lob)} files)")
+                process_single_group(
+                    output_name, df_lob, file_col,
+                    ref_words, is_independent_mode,
+                    max_workers, output_dir
+                )
+
+
+def run_from_config(config: dict) -> None:
+    """Execute word frequency analysis from validated config.
+
+    Args:
+        config: Validated configuration dictionary
+
+    Note: Config must be validated before calling this function.
+    """
+    # 1. Extract config values
+    output_dir = config['output_dir']
+    reference_dataset = config.get('reference_dataset')
+    max_workers_config = config.get('max_workers')
+    datasets = config['datasets']
+
+    # 2. Determine worker count
+    if max_workers_config is None:
+        max_workers = max(1, os.cpu_count() // 2)
+        logger.info(f"Auto-detected max_workers: {max_workers} (half of {os.cpu_count()} cores)")
+    else:
+        max_workers = max_workers_config
+        logger.info(f"Using configured max_workers: {max_workers}")
+
+    # 3. Log analysis start
+    logger.info("Starting word frequency analysis from config")
+
+    # 4. PHASE 1: Build reference (if cross-dataset mode)
+    ref_words = None
+    is_independent_mode = True
+
+    if reference_dataset is not None:
+        # Cross-dataset mode
+        logger.info(f"Cross-dataset mode: using '{reference_dataset}' as reference")
+
+        # Find reference dataset in config
+        ref_dataset_config = [ds for ds in datasets if ds['name'] == reference_dataset][0]
+
+        # Load full manifest (ignore any grouping)
+        ref_manifest_df = pd.read_csv(ref_dataset_config['manifest_csv'])
+        ref_file_col = ref_dataset_config['file_col']
+        ref_file_paths = ref_manifest_df[ref_file_col].tolist()
+
+        # Extract all unigrams from reference dataset
+        logger.info(f"Building reference from {reference_dataset} ({len(ref_file_paths)} files)")
+        ref_words_all = get_dataset_unigrams(ref_file_paths, max_workers, reference_dataset)
+        ref_words = list(set(ref_words_all))
+        logger.info(f"Reference built: {len(ref_words)} unique unigrams from {len(ref_words_all)} total words")
+
+        is_independent_mode = False
+    else:
+        # Independent mode
+        logger.info("Independent mode: each dataset will use own unigrams as reference")
+
+    # 5. PHASE 2: Process each dataset
+    datasets_processed = 0
+    datasets_total = len(datasets)
+
+    for dataset in datasets:
+        ds_name = dataset['name']
+        manifest_csv = dataset['manifest_csv']
+        file_col = dataset['file_col']
+        group_by_lob = dataset.get('group_by_lob')
+        group_by_dataset = dataset.get('group_by_dataset')
+
+        try:
+            manifest_df = pd.read_csv(manifest_csv)
+            logger.info(f"Processing dataset: {ds_name} ({len(manifest_df)} files in manifest)")
+
+            # Apply grouping logic
+            process_dataset_with_grouping(
+                ds_name, manifest_df, file_col,
+                group_by_lob, group_by_dataset,
+                ref_words, is_independent_mode,
+                max_workers, output_dir
+            )
+
+            datasets_processed += 1
+
+        except Exception as e:
+            logger.error(f"Failed to process dataset '{ds_name}': {e}")
+            continue
+
+    # 6. PHASE 3: Summary
+    logger.info("Analysis complete")
+    logger.info(f"Datasets processed: {datasets_processed}/{datasets_total}")
+    if datasets_processed < datasets_total:
+        logger.warning(f"{datasets_total - datasets_processed} dataset(s) failed - check log for details")
+
+
 if __name__ == "__main__":
     # Example use:
     prs = glob.glob(".\\Media\\Telco\\PhraseReco\\*.zip")
