@@ -530,17 +530,81 @@ def run_from_config(config: dict) -> None:
         logger.warning(f"{datasets_total - datasets_processed} dataset(s) failed - check log for details")
 
 
-if __name__ == "__main__":
-    # Example use:
-    prs = glob.glob(".\\Media\\Telco\\PhraseReco\\*.zip")
-    prs_dev = prs[0:10]
-    prs_itv = prs[10::]
-    print(len(prs_dev), len(prs_itv ))
+def main():
+    """CLI entry point for word frequency analysis.
 
-    words_dev = get_dataset_unigrams(prs_dev, max_workers=2, dataset_name='DEV')
-    ref_words = list(set(words_dev))
-    words_itv = get_dataset_unigrams(prs_itv, max_workers=2, dataset_name='ITV')
-    word_cnt_dev = word_freq(ref_words, words_dev, 2, 'DEV', r'C:\Users\nlazarus\OneDrive - Nice Systems Ltd\Documents\CitiTools\outputs').sort_values(by=f'DEV %', ascending=False).reset_index(drop=True)
-    word_cnt_itv = word_freq(ref_words, words_itv, 2, 'ITV', r'C:\Users\nlazarus\OneDrive - Nice Systems Ltd\Documents\CitiTools\outputs').sort_values(by=f'ITV %', ascending=False).reset_index(drop=True)
-    print(len(word_cnt_dev))
-    print(len(word_cnt_itv))
+    Parses command-line arguments, loads and validates config,
+    and executes the analysis pipeline.
+
+    Exit codes:
+        0: Success
+        1: Config load error, validation error, or analysis failure
+    """
+    parser = argparse.ArgumentParser(
+        description='Word frequency analysis for MRM datasets',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python word_frequency_analysis.py
+  python word_frequency_analysis.py --config my_config.yaml
+
+For more details, see the template: config_word_frequency.yaml
+        """
+    )
+    parser.add_argument(
+        '--config',
+        type=str,
+        default='config_word_frequency.yaml',
+        help='Path to YAML config file (default: config_word_frequency.yaml)'
+    )
+
+    args = parser.parse_args()
+
+    # Load config
+    try:
+        config = load_config(args.config)
+        logger.info(f"Loaded config from: {args.config}")
+    except FileNotFoundError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    except yaml.YAMLError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error loading config: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # Validate config
+    errors = validate_config(config)
+    if errors:
+        print("Configuration validation failed:", file=sys.stderr)
+        for error in errors:
+            print(f"  - {error}", file=sys.stderr)
+        sys.exit(1)
+
+    logger.info("Config validation passed")
+
+    # Create output directory
+    output_dir = config['output_dir']
+    try:
+        os.makedirs(output_dir, exist_ok=True)
+        logger.info(f"Output directory ready: {output_dir}")
+    except Exception as e:
+        print(f"Error creating output directory '{output_dir}': {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # Run analysis
+    try:
+        run_from_config(config)
+        logger.info("Word frequency analysis completed successfully")
+    except Exception as e:
+        logger.error(f"Analysis failed: {e}")
+        print(f"Error: Analysis failed - {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
