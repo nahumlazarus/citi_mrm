@@ -144,23 +144,51 @@ Nxpr | Channel | Type | Phrase | StartCS | EndCS | Score
 ### 2. **word_frequency_analysis.py**
 **Purpose:** Generate comprehensive unigram frequency analysis across multiple datasets using parallel processing.
 
-**Key Functions:**
+**Recommended Usage (Config-Driven):**
+Users modify `config_word_frequency.yaml` and run:
+```bash
+python word_frequency_analysis.py
+# or with custom config:
+python word_frequency_analysis.py --config my_analysis.yaml
+```
+
+**Config Structure:**
+```yaml
+output_dir: "./outputs"
+max_workers: 4  # Optional: auto-detected if omitted
+reference_dataset: "DEV"  # Optional: omit for independent mode
+
+datasets:
+  - name: "DEV"
+    manifest_csv: "./dev_files.csv"
+    file_col: "FilePath"
+    group_by_lob: "LineOfBusiness"      # Optional: LOB grouping
+    group_by_dataset: "DatasetSplit"    # Optional: DEV/VAL grouping
+```
+
+**Analysis Modes:**
+- **Cross-dataset mode** (when `reference_dataset` is specified):
+  - Builds reference unigram set from specified dataset
+  - All other datasets count against this reference
+  - Use when comparing vocabulary consistency across train/test/validation
+- **Independent mode** (when `reference_dataset` is omitted):
+  - Each dataset builds own reference from its unigrams
+  - Use when datasets have different vocabularies
+
+**Grouping Behavior:**
+- No grouping: Single output file
+- LOB only: Creates `{name}_combined` + one file per LOB value
+- Dataset only: One file per dataset value (no combined)
+- Both: Creates `{name}_{dataset}_combined` + `{name}_{dataset}_{lob}` per LOB within each dataset split
+
+**Programmatic API (Legacy, Still Supported):**
 - `get_transcript_unigrams(file_path)` - Extracts all unigrams from a single transcript
 - `get_dataset_unigrams(file_paths, max_workers, dataset_name)` - Extracts unigrams from entire dataset (parallel processing)
 - `cnt_unigrams(ref_word, word_counter)` - Counts occurrences of a reference word
 - `word_freq(ref_words, words, max_workers, dataset_name, save_dir)` - Calculates word frequencies against reference set
 
-**Workflow:**
-1. Build reference unigram set from development dataset
-2. Count occurrences of reference unigrams across all datasets
-3. Calculate both absolute counts and percentages
-
-**Input Format:**
-- File paths to phrase reco files (.csv.zip format)
-- Same tab-separated format as word_statistics.py
-
 **Output:**
-- CSV file per dataset with columns:
+- CSV file per group/dataset with columns:
   - `Word` - The unigram
   - `{dataset_name} Count` - Absolute frequency
   - `{dataset_name} %` - Relative frequency (percentage)
@@ -169,7 +197,8 @@ Nxpr | Channel | Type | Phrase | StartCS | EndCS | Score
 **Performance:**
 - Uses `ProcessPoolExecutor` for parallel processing
 - Progress bars via `tqdm`
-- Configurable worker count
+- Auto-detects CPU cores (uses half by default)
+- Configurable worker count via config
 
 ---
 
@@ -302,6 +331,13 @@ word_stats(datasets, 'File', './outputs/word_stats.csv')
 ```
 
 ### word_frequency_analysis.py
+
+**Config-driven (recommended):**
+```bash
+python word_frequency_analysis.py --config my_config.yaml
+```
+
+**Programmatic:**
 ```python
 # Build reference set from dev dataset
 words_dev = get_dataset_unigrams(dev_files, max_workers=4, dataset_name='DEV')
@@ -354,7 +390,7 @@ Scripts expect/create these directories:
 **MRM Requirement:** Show consistency and distribution of vocabulary across train/test/validation sets  
 **Output for MRM:** Word frequency tables showing coverage and distribution  
 **Reviewer Question Answered:** "Are there vocabulary shifts between datasets that could affect model performance?"  
-**Accessibility Need:** Semi-technical users need to understand which datasets to compare and where outputs go
+**Accessibility Need:** ✅ **ACHIEVED** - Users modify YAML config (specify datasets, grouping, reference mode) and run. Config validation provides clear error messages.
 
 ### tpr_fpr_curve.py - **Model Performance Evaluation**
 **MRM Requirement:** Standard classification performance metrics (ROC curve, AUC)  
@@ -371,11 +407,11 @@ Scripts expect/create these directories:
 - ✅ Logging and error handling
 - ✅ Example usage patterns
 
-**Phase 2 (In Progress):** Refactoring for UI integration  
-- ✅ Standardize input/output interfaces (word_statistics.py, tpr_fpr_curve.py)
+**Phase 2 (Complete):** Refactoring for UI integration  
+- ✅ Standardize input/output interfaces (all scripts)
 - ✅ Improve error messages for non-technical users (config validation)
 - ✅ Add input validation and helpful error guidance (validate_config)
-- 🔄 Extract core logic from hardcoded example code (word_frequency_analysis.py remaining)
+- ✅ Extract core logic from hardcoded example code (all scripts now config-driven)
 
 **Phase 3 (Next):** UI Development  
 - 📋 Simple UI where users can:
