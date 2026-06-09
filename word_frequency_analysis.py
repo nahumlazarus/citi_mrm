@@ -191,6 +191,127 @@ def load_config(config_path: str) -> dict:
         raise yaml.YAMLError(f"Error parsing YAML config: {e}")
 
 
+def validate_config(config: dict) -> List[str]:
+    """Validate configuration structure and file availability.
+
+    Args:
+        config: Configuration dictionary from load_config()
+
+    Returns:
+        List of error messages (empty if valid)
+    """
+    errors = []
+
+    # Check config is not empty
+    if not config:
+        errors.append("Config is empty")
+        return errors
+
+    # 1. Check top-level structure
+    if 'output_dir' not in config or not config['output_dir']:
+        errors.append("Missing required field: output_dir")
+    elif not isinstance(config['output_dir'], str) or not config['output_dir'].strip():
+        errors.append("output_dir must be a non-empty string")
+
+    if 'datasets' not in config:
+        errors.append("Missing required field: datasets")
+        return errors
+
+    if not isinstance(config['datasets'], list) or len(config['datasets']) == 0:
+        errors.append("datasets must be a non-empty list")
+        return errors
+
+    # 2. Validate max_workers if present
+    max_workers = config.get('max_workers')
+    if max_workers is not None:
+        if not isinstance(max_workers, int) or max_workers < 1:
+            errors.append(f"max_workers must be >= 1, got: {max_workers}")
+        elif os.cpu_count() and max_workers > os.cpu_count():
+            logger.warning(f"max_workers ({max_workers}) exceeds available CPU cores ({os.cpu_count()})")
+
+    # 3. Validate output_dir exists or can be created
+    if 'output_dir' in config and config['output_dir']:
+        output_dir = Path(config['output_dir'])
+        if not output_dir.exists() and not output_dir.parent.exists():
+            errors.append(f"output_dir parent does not exist: {output_dir.parent}")
+
+    # 4. Validate reference_dataset if specified
+    reference_dataset = config.get('reference_dataset')
+    if reference_dataset is not None:
+        dataset_names = [ds.get('name') for ds in config['datasets']]
+        if reference_dataset not in dataset_names:
+            errors.append(f"reference_dataset '{reference_dataset}' not found in datasets list. Available: {dataset_names}")
+
+    # 5. Track dataset names for duplicate check
+    dataset_names = []
+
+    # 6. Validate each dataset
+    for idx, dataset in enumerate(config['datasets']):
+        ds_name = dataset.get('name', f'dataset[{idx}]')
+
+        # Check required fields
+        if 'name' not in dataset or not dataset['name']:
+            errors.append(f"Dataset {idx}: missing required field 'name'")
+            ds_name = f'dataset[{idx}]'
+        else:
+            dataset_names.append(dataset['name'])
+
+        if 'manifest_csv' not in dataset or not dataset['manifest_csv']:
+            errors.append(f"Dataset '{ds_name}': missing required field 'manifest_csv'")
+
+        if 'file_col' not in dataset or not dataset['file_col']:
+            errors.append(f"Dataset '{ds_name}': missing required field 'file_col'")
+
+        # Skip file validation if required fields are missing
+        if 'manifest_csv' not in dataset or not dataset['manifest_csv']:
+            continue
+
+        # Check manifest file exists
+        manifest_path = Path(dataset['manifest_csv'])
+        if not manifest_path.exists():
+            errors.append(f"Dataset '{ds_name}': manifest CSV not found: {dataset['manifest_csv']}")
+            continue
+
+        # Try to load manifest and check columns
+        try:
+            manifest_df = pd.read_csv(manifest_path)
+
+            # Check file_col exists
+            file_col = dataset.get('file_col')
+            if file_col and file_col not in manifest_df.columns:
+                errors.append(f"Dataset '{ds_name}': column '{file_col}' not found in manifest CSV")
+
+            # Check group_by_lob column if specified
+            if 'group_by_lob' in dataset and dataset['group_by_lob']:
+                if not isinstance(dataset['group_by_lob'], str) or not dataset['group_by_lob'].strip():
+                    errors.append(f"Dataset '{ds_name}': group_by_lob must be a non-empty string")
+                elif dataset['group_by_lob'] not in manifest_df.columns:
+                    errors.append(f"Dataset '{ds_name}': group_by_lob column '{dataset['group_by_lob']}' not found in manifest CSV")
+
+            # Check group_by_dataset column if specified
+            if 'group_by_dataset' in dataset and dataset['group_by_dataset']:
+                if not isinstance(dataset['group_by_dataset'], str) or not dataset['group_by_dataset'].strip():
+                    errors.append(f"Dataset '{ds_name}': group_by_dataset must be a non-empty string")
+                elif dataset['group_by_dataset'] not in manifest_df.columns:
+                    errors.append(f"Dataset '{ds_name}': group_by_dataset column '{dataset['group_by_dataset']}' not found in manifest CSV")
+
+            # Check manifest has data rows
+            if len(manifest_df) == 0:
+                errors.append(f"Dataset '{ds_name}': manifest CSV has no data rows")
+
+        except Exception as e:
+            errors.append(f"Dataset '{ds_name}': failed to load manifest CSV: {e}")
+
+    # 7. Check for duplicate dataset names
+    seen_names = set()
+    for name in dataset_names:
+        if name in seen_names:
+            errors.append(f"Duplicate dataset name: '{name}'")
+        seen_names.add(name)
+
+    return errors
+
+
 if __name__ == "__main__":
     # Example use:
     prs = glob.glob(".\\Media\\Telco\\PhraseReco\\*.zip")

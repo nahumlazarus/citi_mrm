@@ -1,0 +1,6 @@
+output_dir: "./outputs"
+reference_dataset: "NonExistent"
+datasets:
+  - name: "Test"
+    manifest_csv: "./test_manifest.csv"
+    file_col: "file_path"

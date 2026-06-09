@@ -1,0 +1,8 @@
+output_dir: "./outputs"
+reference_dataset: "Test"
+max_workers: null
+datasets:
+  - name: "Test"
+    manifest_csv: "./test_manifest.csv"
+    file_col: "file_path"
+    group_by_lob: "lob"

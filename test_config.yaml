@@ -1,0 +1,10 @@
+output_dir: ./outputs
+max_workers: 2
+reference_dataset: dev
+
+datasets:
+  - name: dev
+    manifest_csv: test_manifest.csv
+    file_col: file_path
+    group_by_lob: lob
+    group_by_dataset: dataset_type
