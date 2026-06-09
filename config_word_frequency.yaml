@@ -1,0 +1,251 @@
+# Word Frequency Analysis Configuration
+#
+# Purpose:
+#   Generates unigram frequency counts and percentages for MRM datasets.
+#   Produces CSV files with word frequency analysis, either using a reference
+#   unigram set (cross-dataset mode) or independent unigrams (independent mode).
+#
+# Run: python word_frequency_analysis.py [--config config_word_frequency.yaml]
+#
+# ==============================================================================
+# ANALYSIS MODES
+# ==============================================================================
+#
+# 1. CROSS-DATASET MODE (recommended for model review):
+#    - Specify 'reference_dataset' to name which dataset defines the reference unigrams
+#    - The reference dataset provides ALL unigrams to count
+#    - All OTHER datasets (including reference) are analyzed against this fixed reference
+#    - Ensures consistent unigram vocabulary across all outputs
+#    - Use case: DEV dataset as reference, validate against VAL/test datasets
+#
+# 2. INDEPENDENT MODE (each dataset is self-contained):
+#    - Omit 'reference_dataset' field entirely
+#    - Each dataset builds its own unigram vocabulary from its data
+#    - Different datasets may have completely different unigrams
+#    - Useful for exploratory analysis or isolated dataset reviews
+#    - Use case: Analyze Q1, Q2, Q3 independently with no common vocabulary
+#
+# ==============================================================================
+# GROUPING BEHAVIOR (optional per-dataset)
+# ==============================================================================
+#
+# Datasets can be split into groups using two optional column filters:
+#
+# group_by_lob:
+#   - Splits dataset by Line of Business column
+#   - Creates separate output for each LOB value
+#   - If also specified with group_by_dataset, creates nested grouping
+#   - No combined output when LOB is only grouping field
+#
+# group_by_dataset:
+#   - Splits dataset by Dataset Type column (e.g., DEV vs VAL)
+#   - Creates separate output for each dataset type value
+#   - If also specified with group_by_lob, creates combined output per type
+#   - Example: DEV_combined, DEV_Commercial, DEV_Retail, VAL_combined, etc.
+#
+# Grouping Combinations:
+#   - No grouping:          Single output (dataset name)
+#   - LOB only:             Combined (all LOBs) + per-LOB outputs
+#   - Dataset only:         Per-dataset-type outputs (no combined)
+#   - Both:                 Per-type-combined + per-type-per-LOB outputs
+#
+# ==============================================================================
+# REQUIRED FIELDS
+# ==============================================================================
+#
+# output_dir (string):
+#   Directory where output CSV files will be written
+#   Will be created if it does not exist
+#   Each analysis creates a timestamped CSV file
+#
+# datasets (list):
+#   At least one dataset configuration required
+#   Each dataset must have: name, manifest_csv, file_col
+#   Optional grouping fields: group_by_lob, group_by_dataset
+#
+# ==============================================================================
+# OPTIONAL FIELDS
+# ==============================================================================
+#
+# reference_dataset (string, optional):
+#   Name of the dataset to use as reference unigram source
+#   If specified, enables cross-dataset mode
+#   Must match one of the dataset names exactly
+#   If omitted, independent mode is used (each dataset is self-contained)
+#
+# max_workers (integer, optional):
+#   Number of parallel workers for file processing
+#   Default: (CPU count) / 2, rounded down
+#   Adjust based on system resources and I/O constraints
+#   Typical range: 2-16 depending on hardware
+#
+# ==============================================================================
+# PER-DATASET FIELDS
+# ==============================================================================
+#
+# name (string, required):
+#   Unique label for this dataset (used in output filenames)
+#   Must be valid for filesystem (no special chars)
+#   Example: "DEV", "VAL_2024", "Q1_Production"
+#
+# manifest_csv (string, required):
+#   Path to CSV file listing phrase reco transcripts
+#   CSV must have at least one column with file paths
+#   Supports relative paths (from script location) or absolute paths
+#   Example: "./data/dev_manifest.csv"
+#
+# file_col (string, required):
+#   Name of the column in manifest_csv that contains file paths
+#   File paths can be absolute or relative (resolved from script location)
+#   Example: "file_path", "path", "transcript_file"
+#
+# group_by_lob (string, optional):
+#   Column name for Line of Business grouping
+#   If specified, creates separate outputs for each unique LOB value
+#   Example: "LOB", "line_of_business"
+#   Column must exist in manifest_csv
+#
+# group_by_dataset (string, optional):
+#   Column name for dataset type grouping (DEV/VAL/etc)
+#   If specified, creates separate outputs for each unique dataset type
+#   Example: "dataset_type", "phase"
+#   Column must exist in manifest_csv
+#
+# ==============================================================================
+
+# Output directory for CSV files
+output_dir: "./outputs"
+
+# Optional: Name of reference dataset for cross-dataset mode
+# Comment out or remove this line to use independent mode (each dataset self-contained)
+reference_dataset: "DEV"
+
+# Optional: Number of parallel workers for file processing
+# Uncomment to override default (which is CPU count / 2)
+# max_workers: 4
+
+# List of datasets to analyze
+datasets:
+
+  # ============================================================================
+  # EXAMPLE 1: SIMPLE SINGLE DATASET (no grouping)
+  # ============================================================================
+  # Single analysis output with no grouping splits
+  # Output: DEV_word_frequency_analysis_2024-06-09_120000.csv
+  #
+  - name: "DEV"
+    manifest_csv: "./data/dev_manifest.csv"
+    file_col: "file_path"
+
+
+  # ============================================================================
+  # EXAMPLE 2: DATASET WITH LOB GROUPING (commented out)
+  # ============================================================================
+  # Creates separate frequency analysis for each Line of Business
+  # Outputs:
+  #   - VAL_combined_word_frequency_analysis_*.csv       (all LOBs combined)
+  #   - VAL_Commercial_word_frequency_analysis_*.csv     (Commercial LOB only)
+  #   - VAL_Retail_word_frequency_analysis_*.csv         (Retail LOB only)
+  #   - VAL_Mortgage_word_frequency_analysis_*.csv       (Mortgage LOB only)
+  #
+  # - name: "VAL"
+  #   manifest_csv: "./data/val_manifest.csv"
+  #   file_col: "file_path"
+  #   group_by_lob: "LineOfBusiness"
+
+
+  # ============================================================================
+  # EXAMPLE 3: DATASET WITH DATASET-TYPE GROUPING (commented out)
+  # ============================================================================
+  # Creates separate frequency analysis for each dataset type (e.g., DEV vs VAL)
+  # No combined output is created with dataset-type grouping alone
+  # Outputs:
+  #   - COMBINED_DEV_word_frequency_analysis_*.csv       (DEV type only)
+  #   - COMBINED_VAL_word_frequency_analysis_*.csv       (VAL type only)
+  #   - COMBINED_TEST_word_frequency_analysis_*.csv      (TEST type only)
+  #
+  # - name: "COMBINED"
+  #   manifest_csv: "./data/combined_manifest.csv"
+  #   file_col: "file_path"
+  #   group_by_dataset: "DatasetPhase"
+
+
+  # ============================================================================
+  # EXAMPLE 4: DATASET WITH BOTH LOB AND DATASET-TYPE GROUPING (commented out)
+  # ============================================================================
+  # Creates nested grouping: first by dataset type, then by LOB within each type
+  # Outputs:
+  #   - QUARTERLY_2024_DEV_combined_word_frequency_analysis_*.csv
+  #   - QUARTERLY_2024_DEV_Commercial_word_frequency_analysis_*.csv
+  #   - QUARTERLY_2024_DEV_Retail_word_frequency_analysis_*.csv
+  #   - QUARTERLY_2024_VAL_combined_word_frequency_analysis_*.csv
+  #   - QUARTERLY_2024_VAL_Commercial_word_frequency_analysis_*.csv
+  #   - QUARTERLY_2024_VAL_Retail_word_frequency_analysis_*.csv
+  #
+  # - name: "QUARTERLY_2024"
+  #   manifest_csv: "./data/quarterly_2024_manifest.csv"
+  #   file_col: "TranscriptPath"
+  #   group_by_lob: "LineOfBusiness"
+  #   group_by_dataset: "DatasetPhase"
+
+
+# ==============================================================================
+# ANALYSIS MODE SELECTION
+# ==============================================================================
+#
+# CURRENT CONFIGURATION:
+#   With 'reference_dataset: DEV' above, this is CROSS-DATASET MODE
+#
+#   - DEV will build the reference unigram vocabulary from its full manifest
+#   - VAL will be analyzed against DEV's unigrams
+#   - Output CSVs for both will have the same set of rows (DEV's unigrams)
+#   - Missing unigrams in VAL will have frequency = 0
+#
+# TO SWITCH TO INDEPENDENT MODE:
+#   - Delete or comment out the 'reference_dataset: DEV' line above
+#   - Each dataset will use its own unigrams as reference
+#   - Different datasets may have different row counts and word sets
+#   - Useful for exploratory or isolated analysis
+#
+# ==============================================================================
+# OUTPUT FORMAT
+# ==============================================================================
+#
+# Each analysis produces a CSV file with three columns:
+#   - Word:           The unigram
+#   - [Dataset] Count: Frequency count in this dataset
+#   - [Dataset] %:     Percentage of total unigrams in this dataset
+#
+# Example row: "hello" | 1500 | 0.0234
+#
+# Files are timestamped to avoid overwrites:
+#   DEV_word_frequency_analysis_2024-06-09_143022.csv
+#
+# ==============================================================================
+# FILE REQUIREMENTS
+# ==============================================================================
+#
+# Manifest CSV Format:
+#   - One row per transcript file
+#   - Must have at least one column with file paths
+#   - May have additional columns (LOB, dataset phase, etc.)
+#   - Use 'file_col' to specify which column contains paths
+#
+# Phrase Reco Format (transcript files):
+#   - Tab-separated values (TSV)
+#   - Columns: Nxpr | Channel | Type | Phrase | StartCS | EndCS | Score
+#   - Script extracts phrases where Type == 'T' (transcript words)
+#   - All other rows (hypothesis variants, etc.) are ignored
+#
+# ==============================================================================
+# NOTES FOR MODEL REVIEW
+# ==============================================================================
+#
+# For regulatory compliance and model review:
+#   - Use cross-dataset mode with DEV as reference_dataset
+#   - Ensures consistent vocabulary across training, validation, and test
+#   - Document which dataset was used as reference in review materials
+#   - Verify output file paths match expected deliverable locations
+#   - Check that all datasets show reasonable word frequency distributions
+#
+# ==============================================================================
