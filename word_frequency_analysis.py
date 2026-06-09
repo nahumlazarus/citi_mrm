@@ -235,17 +235,10 @@ def validate_config(config: dict) -> List[str]:
         if not output_dir.exists() and not output_dir.parent.exists():
             errors.append(f"output_dir parent does not exist: {output_dir.parent}")
 
-    # 4. Validate reference_dataset if specified
-    reference_dataset = config.get('reference_dataset')
-    if reference_dataset is not None:
-        dataset_names = [ds.get('name') for ds in config['datasets']]
-        if reference_dataset not in dataset_names:
-            errors.append(f"reference_dataset '{reference_dataset}' not found in datasets list. Available: {dataset_names}")
-
-    # 5. Track dataset names for duplicate check
+    # 4. Track dataset names for duplicate check and reference validation
     dataset_names = []
 
-    # 6. Validate each dataset
+    # 5. Validate each dataset
     for idx, dataset in enumerate(config['datasets']):
         ds_name = dataset.get('name', f'dataset[{idx}]')
 
@@ -301,6 +294,12 @@ def validate_config(config: dict) -> List[str]:
 
         except Exception as e:
             errors.append(f"Dataset '{ds_name}': failed to load manifest CSV: {e}")
+
+    # 6. Validate reference_dataset if specified
+    reference_dataset = config.get('reference_dataset')
+    if reference_dataset is not None:
+        if reference_dataset not in dataset_names:
+            errors.append(f"reference_dataset '{reference_dataset}' not found in datasets list. Available: {dataset_names}")
 
     # 7. Check for duplicate dataset names
     seen_names = set()
